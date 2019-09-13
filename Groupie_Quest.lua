@@ -1,7 +1,7 @@
 ADDON_NAME = "Groupie_Quest"
 ADDON_LOADED_MSG = "Groupie Quest: Loaded"
 
-local isDebug = true
+local isDebug = false
 Groupie_QuestLog = {}
 Groupie_PartyQuestLog = {}
 
@@ -141,10 +141,11 @@ renderPartyQuestProgress = function()
 			if ( numObjectives > 0 ) then
 				local title, _, _, isHeader, _, _, _, questID, _, _, _, _, _, _, _, _, _ = GetQuestLogTitle(questIndex)
 				
-				if shouldTrackQuest(questID) then				
-					for objectiveIndex = 1, numObjectives do
-						questWatchLine = questWatchLine + 1
-						
+				questWatchLine = questWatchLine + 1
+		
+				for objectiveIndex = 1, numObjectives do
+					
+					if shouldTrackQuest(questID) then	
 						local questWatchLineFrame = _G["GroupieQuestInfo"..questWatchLine]
 						questWatchLineFrame:Show()
 						questWatchLineFrame.objectiveName = getObjectiveName(questIndex, objectiveIndex)
@@ -156,10 +157,11 @@ renderPartyQuestProgress = function()
 							questWatchLineFrame.bg2:SetVertexColor(1,1,0)
 						end
 					end
+					
+					questWatchLine = questWatchLine + 1
 				end
 			end
 		end
-		questWatchLine = questWatchLine + 1
 	end
 end
 
@@ -217,10 +219,10 @@ local events = {
 		sendOwnQuestLog()
 		renderPartyQuestProgress()
     end,
-    QUEST_WATCH_UPDATE = function()   
-		sendOwnQuestLog()
+    QUEST_WATCH_LIST_CHANGED = function() 
+		print("QUEST_WATCH_LIST_CHANGED")  
 		renderPartyQuestProgress()    
-    end,
+    end,    
     QUEST_ITEM_UPDATE = function()
 		sendOwnQuestLog()
 		renderPartyQuestProgress() 
