@@ -35,9 +35,8 @@ local handleAddonMessage = function(message, sender)
 		local objectives = {}
 						
 		for y = 2, #objectivesToParse do
-			local objectiveName, progress = strsplit(":", objectivesToParse[y])
-			local numFulfilled, numRequired = strsplit("/", progress)
-			objectives[y-1] = { name = objectiveName, numFulfilled = numFulfilled, numRequired = numRequired }
+			local numFulfilled, numRequired = strsplit("/", objectivesToParse[y])
+			objectives[y-1] = { numFulfilled = numFulfilled, numRequired = numRequired }
 		end
 		
 		questLog[tonumber(questID)] = objectives
@@ -71,7 +70,7 @@ local sendOwnQuestLog = function()
 		if #questEntry.objectives ~= 0 then
 			local serializedQuestEntry = questEntry.id.."|"
 			for i, objective in pairs(questEntry.objectives) do
-				serializedQuestEntry = serializedQuestEntry..";"..objective.text
+				serializedQuestEntry = serializedQuestEntry..";"..objective.numFulfilled.."/"..objective.numRequired
 			end
 			serializedQuestLog = serializedQuestLog.."#"..serializedQuestEntry
 		end
@@ -105,16 +104,9 @@ getPartyProgressForQuestObjective = function(questID, objectiveIndex)
 	return progress
 end
 
-getObjectiveName = function(questID, objectiveIndex)
-
-	for player, quests in pairs(Groupie_PartyQuestLog) do
-		if quests[questID] ~= nil then
-			local objective = quests[questID][objectiveIndex]
-			return objective.name
-		end
-	end
-	
-	return ""
+getObjectiveName = function(questIndex, objectiveIndex)
+	local text, type, finished = GetQuestLogLeaderBoard(objectiveIndex, questIndex)
+	return strsplit(":", text)
 end
 
 renderPartyQuestProgress = function()
@@ -134,7 +126,7 @@ renderPartyQuestProgress = function()
 					if isQuestObjectiveCompleted(questID, objectiveIndex) == false then
 						local questWatchLineFrame = _G["GroupieQuestInfo"..questWatchLine]
 						questWatchLineFrame:Show()
-						questWatchLineFrame.objectiveName = getObjectiveName(questID, objectiveIndex)
+						questWatchLineFrame.objectiveName = getObjectiveName(questIndex, objectiveIndex)
 						questWatchLineFrame.progress = getPartyProgressForQuestObjective(questID, objectiveIndex)
 					end
 				end
