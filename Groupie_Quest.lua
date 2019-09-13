@@ -220,7 +220,7 @@ local events = {
 		renderPartyQuestProgress()
     end,
     QUEST_WATCH_LIST_CHANGED = function() 
-		print("QUEST_WATCH_LIST_CHANGED")  
+		debug_print("QUEST_WATCH_LIST_CHANGED")  
 		renderPartyQuestProgress()    
     end,    
     QUEST_ITEM_UPDATE = function()
