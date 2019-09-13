@@ -35,14 +35,17 @@ local handleAddonMessage = function(message, sender)
 		local objectives = {}
 						
 		for y = 2, #objectivesToParse do
-			local numFulfilled, numRequired = strsplit("/", objectivesToParse[y])
-			objectives[y-1] = { numFulfilled = numFulfilled, numRequired = numRequired }
+			local objectiveName, progress = strsplit(":", objectivesToParse[y])
+			local numFulfilled, numRequired = strsplit("/", progress)
+			objectives[y-1] = { name = objectiveName, numFulfilled = numFulfilled, numRequired = numRequired }
 		end
 		
 		questLog[tonumber(questID)] = objectives
 	end
 	
 	Groupie_PartyQuestLog[senderName] = questLog
+	
+	renderPartyQuestProgress()
 end
 
 -- Functions
@@ -68,7 +71,7 @@ local sendOwnQuestLog = function()
 		if #questEntry.objectives ~= 0 then
 			local serializedQuestEntry = questEntry.id.."|"
 			for i, objective in pairs(questEntry.objectives) do
-				serializedQuestEntry = serializedQuestEntry..";"..objective.numFulfilled.."/"..objective.numRequired
+				serializedQuestEntry = serializedQuestEntry..";"..objective.text
 			end
 			serializedQuestLog = serializedQuestLog.."#"..serializedQuestEntry
 		end
@@ -90,12 +93,36 @@ isQuestObjectiveCompleted = function(questID, objectiveIndex)
 	return true
 end
 
+getPartyProgressForQuestObjective = function(questID, objectiveIndex)
+	local progress = ""
+	for player, quests in pairs(Groupie_PartyQuestLog) do
+		if quests[questID] ~= nil then
+			local objective = quests[questID][objectiveIndex]
+			progress = progress.."|"..player..": "..objective.numFulfilled.."/"..objective.numRequired
+		end
+	end
+	
+	return progress
+end
+
+getObjectiveName = function(questID, objectiveIndex)
+
+	for player, quests in pairs(Groupie_PartyQuestLog) do
+		if quests[questID] ~= nil then
+			local objective = quests[questID][objectiveIndex]
+			return objective.name
+		end
+	end
+	
+	return ""
+end
+
 renderPartyQuestProgress = function()
 	if Groupie_PartyQuestLog[UnitName("player")] == nil then
 		return
 	end
 
-
+	local questWatchLine = 1
 	for i=1, GetNumQuestWatches() do
 		local questIndex = GetQuestIndexForWatch(i);
 		if ( questIndex ) then			
@@ -103,14 +130,17 @@ renderPartyQuestProgress = function()
 			if ( numObjectives > 0 ) then
 				local title, _, _, isHeader, _, _, _, questID, _, _, _, _, _, _, _, _, _ = GetQuestLogTitle(questIndex)
 				for objectiveIndex = 1, numObjectives do
-					if isQuestObjectiveCompleted(questID, objectiveIndex) == true then
-						debug_print("ja")
-					else
-						debug_print("nej")
+					questWatchLine = questWatchLine + 1
+					if isQuestObjectiveCompleted(questID, objectiveIndex) == false then
+						local questWatchLineFrame = _G["GroupieQuestInfo"..questWatchLine]
+						questWatchLineFrame:Show()
+						questWatchLineFrame.objectiveName = getObjectiveName(questID, objectiveIndex)
+						questWatchLineFrame.progress = getPartyProgressForQuestObjective(questID, objectiveIndex)
 					end
 				end
 			end
 		end
+		questWatchLine = questWatchLine + 1
 	end
 end
 
@@ -122,15 +152,19 @@ for i=2,10 do    -- index 1 is always a header so skip that one
     f:SetHeight(20)
     f:SetFrameStrata("HIGH")
 
-	-- f:SetScript("OnEnter", function(self) 
-	-- 	ShowUIPanel(GameTooltip)
-	-- 	GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
-	-- 	GameTooltip:SetText(self.questInfo)
-	-- 	GameTooltip:Show()
-	-- end)
-	-- f:SetScript("OnLeave", function(self) 
-	-- 	GameTooltip:Hide()
-	-- end)
+	f:SetScript("OnEnter", function(self) 
+		ShowUIPanel(GameTooltip)
+		GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+		GameTooltip:AddLine(self.objectiveName)
+		local progress = { strsplit("|", self.progress) }
+		for _, progressEntry in pairs(progress) do
+			GameTooltip:AddLine(progressEntry,1,1,1)		
+		end
+		GameTooltip:Show()
+	end)
+	f:SetScript("OnLeave", function(self) 
+		GameTooltip:Hide()
+	end)
 
     f:SetPoint("CENTER", questWatchLine, "LEFT", 0, 0)
 
@@ -140,7 +174,7 @@ for i=2,10 do    -- index 1 is always a header so skip that one
     f.bg:SetWidth(38)
     f.bg:SetHeight(38)
 
-    f:Show()
+    f:Hide()
 end
 
 
