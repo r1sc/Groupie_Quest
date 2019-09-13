@@ -1,83 +1,59 @@
-Groupie_Debug = false
-Groupie_Quests = {}
+ADDON_NAME = "Groupie_Quest"
+ADDON_LOADED_MSG = "Groupie Quest: Loaded"
+
+local isDebug = true
+Groupie_QuestLog = {}
+Groupie_PartyQuestLog = {}
 
 local debug_print = function(...)
-    if Groupie_Debug then
-        print(...)
+    if isDebug then
+        print(ADDON_NAME.." [DEBUG]: ".. ...)
     end
 end
 
-local send = function(prefix, message, channel)
-    debug_print("SendAddonMessage("..prefix..","..message..","..channel..")")
-    C_ChatInfo.SendAddonMessage(prefix, message, channel)    
+-- Set up frame etc.
+local frame = CreateFrame("Frame", ADDON_NAME, UIParent)
+
+-- Addon chat handling
+local sendAddonMessage = function(message)
+	local channel = "PARTY"
+    debug_print("SendMessage("..ADDON_NAME..","..message..","..channel..")")
+    C_ChatInfo.SendAddonMessage(ADDON_NAME, message, channel)    
 end
 
-function GetLeaderBoardDetails (boardIndex,questIndex)
-    local description, objectiveType, isCompleted = GetQuestLogLeaderBoard (boardIndex,questIndex);
-    local itemName, num = strsplit(":",description)
-    local numItems, numNeeded = strsplit("/", num)
-    return objectiveType, itemName, numItems, numNeeded, isCompleted;
-  end -- returns eg. "monster", "Young Nightsaber slain", 1, 7, nil
+local handleAddonMessage = function(message, sender)
+	local senderName, _ = strsplit("-", sender)
+	debug_print("ReceiveMessage ["..senderName.."] "..message)
 
--- Event handling
-
-
-local events = {
-    ADDON_LOADED = function(addonName)
-        if addonName == "Groupie_Quest" then            
-            local result = C_ChatInfo.RegisterAddonMessagePrefix("Groupie_Quest")
-            print("Groupie Quest: Loaded")
-            
-            numEntries, _ = GetNumQuestLogEntries()
-            for questLogIndex = 1,numEntries do
-                title, level, suggestedGroup, isHeader, isCollapsed, isComplete, frequency, questID, startEvent, displayQuestID, isOnMap, hasLocalPOI, isTask, isBounty, isStory, isHidden, isScaling = GetQuestLogTitle(questLogIndex)
-                if isHeader == false then
-                    local numLeaderboards = GetNumQuestLeaderBoards(questLogIndex)
-                    questEntry = { title = title, tasks = C_QuestLog.GetQuestObjectives(questID) }
-                    -- for leaderboardIndex = 1,numLeaderboards do
-                    --     objectiveType, itemName, numItems, numNeeded, isCompleted = GetLeaderBoardDetails(leaderboardIndex, questLogIndex)
-                    --     questEntry.tasks[leaderboardIndex] = { itemName = itemName, numItems = numItems, numNeeded = numNeeded }
-                    -- end
-                    Groupie_Quests[questID] = questEntry
-                end
-            end
-        end
-    end,
-    GROUP_ROSTER_UPDATE = function()
-        RefreshPartyXPBars()
-        SendXP()
-    end,
-    PLAYER_XP_UPDATE = function()
-        SendXP()
-    end,
-    CHAT_MSG_ADDON = function(prefix, message, channel, sender)        
-        if prefix == "Groupie_XP" then
-            local _, _, xp, xpMax = string.find(message, "(%d+)|(%d+)")
-            local name, _ = strsplit("-", sender)
-            if Groupie_Debug then
-                debug_print("Received XP update from "..name..": Now: "..xp.." Max: "..xpMax)
-            end
-            
-            Groupie_XPs[name] = { xp = xp, xpMax = xpMax }
-            RefreshPartyXPBars()
-        end        
-    end
-}
-
---- Set up frame etc.
-
-CreateFrame("Frame", "Groupie_Quest", UIParent)
-for e,f in pairs(events) do
-    Groupie_Quest:RegisterEvent(e)
+	Groupie_PartyQuestLog[senderName] = { message = message }
 end
-Groupie_Quest:SetScript("OnEvent", function(self, event, ...)
-    for e,f in pairs(events) do
-        if e == event then
-            f(...)
-            break
-        end
-    end
-end)
+
+-- Functions
+
+local loadOwnQuestLog = function()
+	Groupie_QuestLog = {}
+
+	numEntries, _ = GetNumQuestLogEntries()
+	debug_print(numEntries)
+	for questLogIndex = 1, numEntries do
+		title, _, _, isHeader, _, _, _, questID, _, _, _, _, _, _, _, _, _ = GetQuestLogTitle(questLogIndex)
+		if isHeader == false then
+			questEntry = { id = questID, title = title, objectives = C_QuestLog.GetQuestObjectives(questID) }
+			Groupie_QuestLog[questID] = questEntry
+		end
+	end
+end
+
+local sendOwnQuestLog = function()
+	local serializedQuestLog = ""
+	
+	for questID, questEntry in pairs(Groupie_QuestLog) do
+		local serializedQuestEntry = questEntry.id
+		serializedQuestLog = serializedQuestLog.."#"..serializedQuestEntry
+	end
+	
+	sendAddonMessage("QL@"..serializedQuestLog)
+end
 
 -- Set up quest tracker info frames
 for i=2,10 do    -- index 1 is always a header so skip that one
@@ -107,3 +83,42 @@ for i=2,10 do    -- index 1 is always a header so skip that one
 
     f:Show()
 end
+
+
+-- event handlers
+local events = {
+    PLAYER_LOGIN = function()
+		print(ADDON_LOADED_MSG)
+
+		loadOwnQuestLog()
+		sendOwnQuestLog()
+		
+		C_ChatInfo.RegisterAddonMessagePrefix(ADDON_NAME)
+    end,
+    GROUP_ROSTER_UPDATE = function()
+       
+    end,
+    PLAYER_XP_UPDATE = function()
+
+    end,
+    CHAT_MSG_ADDON = function(prefix, message, _, sender)        
+        if prefix == ADDON_NAME then
+            handleAddonMessage(message, sender)
+        end        
+    end
+}
+
+-- Event registering, must be last
+
+for e,f in pairs(events) do
+    frame:RegisterEvent(e)
+end
+
+frame:SetScript("OnEvent", function(self, event, ...)
+    for e,f in pairs(events) do
+        if e == event then
+            f(...)
+            break
+        end
+    end
+end)
