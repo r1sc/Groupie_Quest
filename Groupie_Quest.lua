@@ -109,7 +109,26 @@ getObjectiveName = function(questIndex, objectiveIndex)
 	return strsplit(":", text)
 end
 
+hideQuestTracking = function()
+	for i=2,10 do    -- index 1 is always a header so skip that one
+		local questWatchLine = _G["GroupieQuestInfo"..i]
+		questWatchLine:Hide()
+	end
+end
+
+shouldTrackQuest = function(questID)
+	for player, quests in pairs(Groupie_PartyQuestLog) do
+		if player ~= UnitName("player") and quests[questID] ~= nil then
+			return true
+		end
+	end
+	
+	return false
+end
+
 renderPartyQuestProgress = function()
+	hideQuestTracking()
+
 	if Groupie_PartyQuestLog[UnitName("player")] == nil then
 		return
 	end
@@ -121,13 +140,21 @@ renderPartyQuestProgress = function()
 			local numObjectives = GetNumQuestLeaderBoards(questIndex);
 			if ( numObjectives > 0 ) then
 				local title, _, _, isHeader, _, _, _, questID, _, _, _, _, _, _, _, _, _ = GetQuestLogTitle(questIndex)
-				for objectiveIndex = 1, numObjectives do
-					questWatchLine = questWatchLine + 1
-					if isQuestObjectiveCompleted(questID, objectiveIndex) == false then
+				
+				if shouldTrackQuest(questID) then				
+					for objectiveIndex = 1, numObjectives do
+						questWatchLine = questWatchLine + 1
+						
 						local questWatchLineFrame = _G["GroupieQuestInfo"..questWatchLine]
 						questWatchLineFrame:Show()
 						questWatchLineFrame.objectiveName = getObjectiveName(questIndex, objectiveIndex)
 						questWatchLineFrame.progress = getPartyProgressForQuestObjective(questID, objectiveIndex)
+						
+						if isQuestObjectiveCompleted(questID, objectiveIndex) then
+							questWatchLineFrame.bg2:SetVertexColor(0,1,0)
+						else 
+							questWatchLineFrame.bg2:SetVertexColor(1,1,0)
+						end
 					end
 				end
 			end
@@ -161,10 +188,19 @@ for i=2,10 do    -- index 1 is always a header so skip that one
     f:SetPoint("CENTER", questWatchLine, "LEFT", 0, 0)
 
     f.bg = f:CreateTexture(nil, "MEDIUM")
-    f.bg:SetTexture("Interface/Common/BlueMenuRing")
-    f.bg:SetPoint("TOPLEFT", f, "TOPLEFT", -5, 5)
-    f.bg:SetWidth(38)
-    f.bg:SetHeight(38)
+    f.bg:SetTexture("Interface/Buttons/UI-RadioButton")
+	f.bg:SetTexCoord(0,0.25,0,1)
+	--f.bg:SetVertexColor(0,0,1)
+    f.bg:SetPoint("CENTER", f, "CENTER", 5, 0)
+    f.bg:SetWidth(15)
+    f.bg:SetHeight(15)
+		
+    f.bg2 = f:CreateTexture(nil, "MEDIUM")
+    f.bg2:SetTexture("Interface/Buttons/UI-RadioButton")
+	f.bg2:SetTexCoord(0.25,0.5,0,1)
+    f.bg2:SetPoint("CENTER", f, "CENTER", 5, 0)
+    f.bg2:SetWidth(15)
+    f.bg2:SetHeight(15)
 
     f:Hide()
 end
@@ -175,17 +211,23 @@ local events = {
     PLAYER_LOGIN = function()
 		print(ADDON_LOADED_MSG)
 
+		C_ChatInfo.RegisterAddonMessagePrefix(ADDON_NAME)
+		
 		loadOwnQuestLog()
 		sendOwnQuestLog()
 		renderPartyQuestProgress()
-		
-		C_ChatInfo.RegisterAddonMessagePrefix(ADDON_NAME)
+    end,
+    QUEST_WATCH_UPDATE = function()   
+		sendOwnQuestLog()
+		renderPartyQuestProgress()    
+    end,
+    QUEST_ITEM_UPDATE = function()
+		sendOwnQuestLog()
+		renderPartyQuestProgress() 
     end,
     GROUP_ROSTER_UPDATE = function()
-       
-    end,
-    PLAYER_XP_UPDATE = function()
-
+		sendOwnQuestLog()
+		renderPartyQuestProgress() 
     end,
     CHAT_MSG_ADDON = function(prefix, message, _, sender)        
         if prefix == ADDON_NAME then
