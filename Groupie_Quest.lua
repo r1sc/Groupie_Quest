@@ -1,7 +1,7 @@
 ADDON_NAME = "Groupie_Quest"
 ADDON_LOADED_MSG = "Groupie Quest: Loaded"
 
-local isDebug = false
+local isDebug = true
 Groupie_QuestLog = {}
 Groupie_PartyQuestLog = {}
 
@@ -211,19 +211,21 @@ end
 -- event handlers
 local events = {
     PLAYER_LOGIN = function()
-		print(ADDON_LOADED_MSG)
-
 		C_ChatInfo.RegisterAddonMessagePrefix(ADDON_NAME)
 		
 		loadOwnQuestLog()
 		sendOwnQuestLog()
 		renderPartyQuestProgress()
     end,
-    QUEST_WATCH_LIST_CHANGED = function() 
-		debug_print("QUEST_WATCH_LIST_CHANGED")  
+	ADDON_LOADED = function(addonName)
+        if addonName == ADDON_NAME then            
+			print(ADDON_LOADED_MSG)
+        end
+    end,
+    QUEST_WATCH_LIST_CHANGED = function()  
 		renderPartyQuestProgress()    
     end,    
-    QUEST_ITEM_UPDATE = function()
+    QUEST_LOG_UPDATE = function()
 		sendOwnQuestLog()
 		renderPartyQuestProgress() 
     end,
@@ -247,6 +249,8 @@ end
 frame:SetScript("OnEvent", function(self, event, ...)
     for e,f in pairs(events) do
         if e == event then
+			debug_print(event)
+			debug_print(...) 
             f(...)
             break
         end
