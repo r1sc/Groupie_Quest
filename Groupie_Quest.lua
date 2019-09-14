@@ -230,8 +230,13 @@ local events = {
 		renderPartyQuestProgress() 
     end,
     GROUP_ROSTER_UPDATE = function()
-		sendOwnQuestLog()
-		renderPartyQuestProgress() 
+		if IsInGroup() == false then
+			Groupie_PartyQuestLog = {}
+			hideQuestTracking()
+		else
+			sendOwnQuestLog()
+			renderPartyQuestProgress()
+		end		
     end,
     CHAT_MSG_ADDON = function(prefix, message, _, sender)
 		local senderName, _ = strsplit("-", sender)        
