@@ -1,6 +1,5 @@
 ADDON_NAME = "Groupie_Quest"
 ADDON_LOADED_MSG = "Groupie Quest: Loaded"
-MAX_QUESTWATCH_LINES = 30
 
 local isDebug = false
 Groupie_PartyQuestLog = {}
