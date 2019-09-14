@@ -1,5 +1,6 @@
 ADDON_NAME = "Groupie_Quest"
 ADDON_LOADED_MSG = "Groupie Quest: Loaded"
+MAX_QUESTWATCH_LINES = 30
 
 local isDebug = true
 Groupie_PartyQuestLog = {}
@@ -13,50 +14,13 @@ end
 -- Set up frame etc.
 local frame = CreateFrame("Frame", ADDON_NAME, UIParent)
 
--- Addon chat handling
+
+-- Functions
 local sendAddonMessage = function(message)
 	local channel = "PARTY"
     debug_print("SendMessage("..ADDON_NAME..","..message..","..channel..")")
     C_ChatInfo.SendAddonMessage(ADDON_NAME, message, channel)    
 end
-
-local handleAddonMessage = function(message, senderName)
-	debug_print("ReceiveMessage ["..senderName.."] "..message)
-	
-	if message == "REQ" then
-		sendOwnQuestLog()
-		return
-	end
-	
-	local _, questLogEntriesText = strsplit("@", message)
-	local questLogEntries = { strsplit("#", questLogEntriesText) }
-	local questLog = {}
-	
-	for i = 2, #questLogEntries do
-		local questIDText, objectivesText = strsplit("|", questLogEntries[i])
-		local objectivesToParse = { strsplit(";", objectivesText) }
-		local objectives = {}
-		
-		local questID = tonumber(questIDText)
-		if Groupie_PartyQuestLog[questID] == nil then
-			Groupie_PartyQuestLog[questID] = {}
-		end
-						
-		for y = 2, #objectivesToParse do
-			local objectiveIndex = y-1
-			if Groupie_PartyQuestLog[questID][objectiveIndex] == nil then
-				Groupie_PartyQuestLog[questID][objectiveIndex] = {}
-			end
-			
-			local numFulfilled, numRequired = strsplit("/", objectivesToParse[y])
-			Groupie_PartyQuestLog[questID][objectiveIndex][senderName] = { fulfilled = numFulfilled, required = numRequired }
-		end
-	end
-	
-	renderPartyQuestProgress()
-end
-
--- Functions
 
 local getOwnQuestLog = function()
 	local questLog = {}
@@ -91,7 +55,7 @@ local sendOwnQuestLog = function()
 	sendAddonMessage("QL@"..serializedQuestLog)
 end
 
-isQuestObjectiveCompleted = function(questID, questIndex, objectiveIndex)
+local isQuestObjectiveCompleted = function(questID, questIndex, objectiveIndex)
 	local objectiveProgress = Groupie_PartyQuestLog[questID][objectiveIndex]
 	
 	for player, objective in pairs(objectiveProgress) do
@@ -105,27 +69,49 @@ isQuestObjectiveCompleted = function(questID, questIndex, objectiveIndex)
 	return finished
 end
 
-getPartyProgressForQuestObjective = function(questID, objectiveIndex)
+local getPartyProgressForQuestObjective = function(questID, objectiveIndex)
 	return Groupie_PartyQuestLog[questID][objectiveIndex]
 end
 
-getObjectiveName = function(questIndex, objectiveIndex)
+local getObjectiveName = function(questIndex, objectiveIndex)
 	local text = GetQuestLogLeaderBoard(objectiveIndex, questIndex)
 	return strsplit(":", text)
 end
 
-hideQuestTracking = function()
-	for i=2,10 do    -- index 1 is always a header so skip that one
+local hideQuestTracking = function()
+	for i=2,MAX_QUESTWATCH_LINES do    -- index 1 is always a header so skip that one
 		local questWatchLine = _G["GroupieQuestInfo"..i]
 		questWatchLine:Hide()
 	end
 end
 
-shouldTrackQuest = function(questID)
+local shouldTrackQuest = function(questID)
 	return Groupie_PartyQuestLog[questID] ~= nil
 end
 
-renderPartyQuestProgress = function()
+local syncPartyQuestLog = function()
+	local partyNames = GetHomePartyInfo()
+	local isInParty = function(playerName)
+		for i=1,#partyNames do
+			if partyNames[i] == playerName then
+				return true
+			end
+		end
+		return false
+	end
+	
+	for questID, objectives in pairs(Groupie_PartyQuestLog) do
+		for objectiveIndex=1, #objectives do
+			for playerName, progress in pairs(objectives[objectiveIndex]) do
+				if isInParty(playerName) == false then
+					Groupie_PartyQuestLog[questID][objectiveIndex][playerName] = nil
+				end
+			end
+		end
+	end
+end
+
+local renderPartyQuestProgress = function()
 	hideQuestTracking()
 
 	if next(Groupie_PartyQuestLog) == nil then
@@ -164,8 +150,44 @@ renderPartyQuestProgress = function()
 	end
 end
 
+local handleAddonMessage = function(message, senderName)
+	debug_print("ReceiveMessage ["..senderName.."] "..message)
+	
+	if message == "REQ" then
+		sendOwnQuestLog()
+		return
+	end
+	
+	local _, questLogEntriesText = strsplit("@", message)
+	local questLogEntries = { strsplit("#", questLogEntriesText) }
+	local questLog = {}
+	
+	for i = 2, #questLogEntries do
+		local questIDText, objectivesText = strsplit("|", questLogEntries[i])
+		local objectivesToParse = { strsplit(";", objectivesText) }
+		local objectives = {}
+		
+		local questID = tonumber(questIDText)
+		if Groupie_PartyQuestLog[questID] == nil then
+			Groupie_PartyQuestLog[questID] = {}
+		end
+						
+		for y = 2, #objectivesToParse do
+			local objectiveIndex = y-1
+			if Groupie_PartyQuestLog[questID][objectiveIndex] == nil then
+				Groupie_PartyQuestLog[questID][objectiveIndex] = {}
+			end
+			
+			local numFulfilled, numRequired = strsplit("/", objectivesToParse[y])
+			Groupie_PartyQuestLog[questID][objectiveIndex][senderName] = { fulfilled = numFulfilled, required = numRequired }
+		end
+	end
+	
+	renderPartyQuestProgress()
+end
+
 -- Set up quest tracker info frames
-for i=2,30 do    -- index 1 is always a header so skip that one
+for i=2,MAX_QUESTWATCH_LINES do    -- index 1 is always a header so skip that one
     local questWatchLine = _G["QuestWatchLine"..i]
     local f = CreateFrame("Frame", "GroupieQuestInfo"..i, QuestWatchFrame)
     f:SetWidth(20)
@@ -234,6 +256,7 @@ local events = {
 			Groupie_PartyQuestLog = {}
 			hideQuestTracking()
 		else
+			syncPartyQuestLog()
 			sendOwnQuestLog()
 			renderPartyQuestProgress()
 		end		
