@@ -208,7 +208,7 @@ for i=2,MAX_QUESTWATCH_LINES do    -- index 1 is always a header so skip that on
 
     f:SetPoint("CENTER", questWatchLine, "LEFT", 0, 0)
 
-    f.bg = f:CreateTexture(nil, "MEDIUM")
+    f.bg = f:CreateTexture(nil, "OVERLAY")
     f.bg:SetTexture("Interface/Buttons/UI-RadioButton")
 	f.bg:SetTexCoord(0,0.25,0,1)
 	--f.bg:SetVertexColor(0,0,1)
@@ -216,7 +216,7 @@ for i=2,MAX_QUESTWATCH_LINES do    -- index 1 is always a header so skip that on
     f.bg:SetWidth(15)
     f.bg:SetHeight(15)
 		
-    f.bg2 = f:CreateTexture(nil, "MEDIUM")
+    f.bg2 = f:CreateTexture(nil, "OVERLAY")
     f.bg2:SetTexture("Interface/Buttons/UI-RadioButton")
 	f.bg2:SetTexCoord(0.25,0.5,0,1)
     f.bg2:SetPoint("CENTER", f, "CENTER", 5, 0)
