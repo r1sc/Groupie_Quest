@@ -1,0 +1,9 @@
+## Interface: 11302
+## LoadOnDemand: 0
+## Title: Groupie Quest
+## Author: r1sc
+## Version: 0.0.1
+## Notes: Enhances your cooperative WoW experience
+## SavedVariables:
+## OptionalDeps:
+Groupie_Quest.lua
